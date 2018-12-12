@@ -1,5 +1,5 @@
-#Week one
-# Calibration Patron Detection Algorithm
+#Week Two
+# Calibration Patron Detection Algorithm 
 CAMERA
 calibration  consist  on  check  the
 physical   parameters   of   the   camera,   as
@@ -9,7 +9,7 @@ mds
 
 ## Instruccions:
 
-Clonar el repositorio:
+Clone the repository:
 ```
 git clone https:https://github.com/jeffersonquispe/ImagenesSemana1.git
 ``` 
@@ -29,7 +29,7 @@ move to download file:
 exec the next comand to run:
 
 ```
- g++ mape.cpp -o output `pkg-config --cflags --libs opencv`
+ g++ Calibration_Patron.cpp -o output `pkg-config --cflags --libs opencv`
 
 ```
 
@@ -40,7 +40,7 @@ exe:
 ## Document:
 To latex document visualization
 
-https://v2.overleaf.com/read/sphxfdsqkxdz
+https://www.overleaf.com/read/hfjrystrfdfv
 
 
 
