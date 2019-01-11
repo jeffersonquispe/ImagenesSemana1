@@ -23,13 +23,13 @@ apt install libopencv-dev
 ```
 
 
-### Processing Image
+### Calibrated Camera RIngs
 move to download file:
 
 exec the next comand to run:
 
 ```
- g++ Calibration_Patron.cpp -o output `pkg-config --cflags --libs opencv`
+ g++ preprocessing.cpp -o output `pkg-config --cflags --libs opencv`
 
 ```
 
@@ -43,5 +43,19 @@ To latex document visualization
 https://www.overleaf.com/read/hfjrystrfdfv
 
 
+## Calibrated Camera Chessboard -  Circles
+move to download file:
 
+exec the next comand to run:
+
+```
+ g++ -std=c++11 -O3 main.cpp addfunctions.cpp `pkg-config opencv --cflags --libs` -o main && 
+
+
+```
+
+exe:
+```
+./main
+```
 
