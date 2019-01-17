@@ -413,7 +413,7 @@ float getAvgColinearityFromVector(const std::vector<cv::Point2f>& PointBuffer, c
             float dist = cv::norm(tmpPoints[k] - (a + t * b));
             distances.push_back(dist);
         }
-        PrintSTDVector(distances);
+        //PrintSTDVector(distances);
 
         //For each line Calculate their Standart Deviation with respect of points
         float avg = SimpleAverage(distances);
@@ -539,7 +539,7 @@ bool FindRingPattern(vector<Point2f> &probableCPs,int num_rows,int num_cols){
                         tmpCPs.push_back(tmpCenters[j]);
                     }
                 }
-                cout << tmpCPs << '\n';
+                //cout << tmpCPs << '\n';
                 //cin.get();
                 probableCPs.clear();
                 probableCPs = tmpCPs;
@@ -666,12 +666,15 @@ bool thresh_callback(int, void* ,std::vector<cv::Point2f>& points1,bool& isTrack
     // Canny( threshold_out, canny_output, thresh, thresh*2 );
     // Canny(threshold_out,canny_output,200,300,3);
     // imshow("Canny", canny);
+
     cvtColor( frame,gray , COLOR_BGR2GRAY );
     //imshow("GrayScale",gray);
     //Suavizado con Gaussian BLiur
     //GaussianBlur(gray,gaussian,Size(9,9),2,2);
+		//
     GaussianBlur(gray,gray,Size(3,3),0);
     adaptiveThreshold(gray,gray,255,ADAPTIVE_THRESH_GAUSSIAN_C,THRESH_BINARY,41,6);
+		PrintSTDVector(points1);
     // Set maxValue, blockSize and c (constant value)
     int medX=0,medY=0,minX=1000,maxX=0,minY=1000,maxY=0;
     vector<vector<Point> > contours;
@@ -814,6 +817,7 @@ bool thresh_callback(int, void* ,std::vector<cv::Point2f>& points1,bool& isTrack
           //printf(" (y %i  x %i)- ",y,x);
         //cin.get();
     }
+		//imshow("im", src_gray2);
      fin = clock();
     Mat img_copy = frame.clone();
     //================Ordenar Puntos===================================
@@ -958,24 +962,20 @@ bool thresh_callback(int, void* ,std::vector<cv::Point2f>& points1,bool& isTrack
       bool isCorrect = true;
 
       float dstddev = StandarDesviation(distances);
-
       //Aumentar validaciones en esta zona
       if(dstddev > 3.0f)
           isCorrect = false;
-
       //Revisar que np haya duplicados
       for(int i = 0; i < trackedPoints.size()-1;i++)
           for(int j = i+1; j < trackedPoints.size();j++)
               if(trackedPoints[i] == trackedPoints[j])
                   isCorrect = false;
-
       //Si no es correcto el mandar señal para tratar de capturar el tracking
       if(!isCorrect){
           cout << "Couldnt keep tracking\n";
           // cin.get();
           isTracking = false;
       }
-
   }
 
   // isTracking = false;
@@ -1015,26 +1015,29 @@ int main(int argc, char** argv )
       string path="../img/";
       vector< vector<Point3f> > objPoints;
       vector<vector<Point2f> > imgPoints;
-      float squareSize = 0.04540;//meters
+      float squareSize = 0.0454;//meters
       objPoints.resize(1);
     	calcBoardCornerPositions(cv::Size(5,4),squareSize,objPoints[0],patternType);
     	objPoints.resize(noImages,objPoints[0]);
       cv::namedWindow(windowName,0);
-      cv::resizeWindow(windowName,1000,1000);
+      cv::resizeWindow(windowName,640,480);
       bool isTracking;
       //Variables para guardar los Valores de Correccion
     	double rms;
       cv::Mat cameraMatrix = cv::Mat::eye(3,3,CV_64F); // Matriz para guardar la camera Intrinsics
       cv::Mat distCoeffs = cv::Mat::zeros(8, 1,CV_64F); // Aqui guardamos los coeficientes de Distorsion
       std::vector<cv::Mat> rvecs,tvecs; //Vectores de rotacion y de traslacion para cada frame
-      	std::vector<cv::Point2f> oldPoints; // Punto usados para el Tracking en RingGrid
+      std::vector<cv::Point2f> oldPoints; // Punto usados para el Tracking en RingGrid
+			Mat cloud = Mat::zeros( 480, 640, CV_8UC3 );
+			//===========================CALIBRACION===============================================
       FOR(i,noImages){
-
     		string filename = path + std::to_string(i)  +  ".jpg";
     		frame = cv::imread(filename,CV_LOAD_IMAGE_COLOR);
     		std::vector<cv::Point2f> PointBuffer;
     		isTracking = false; // Para que busque en todas las imagenes
+				cout << "1"<<'\n';
     		bool found = thresh_callback( 0, 0 , PointBuffer,isTracking,oldPoints);
+				//PrintSTDVector(PointBuffer);
         if(found){
     			imgPoints.push_back(PointBuffer);
     			cv::drawChessboardCorners(frame,patternSize, PointBuffer,found);
@@ -1042,7 +1045,13 @@ int main(int argc, char** argv )
     		else{
     			cout << "Patron no encontrado\n";
     		}
+
+				for(int i=0;i<PointBuffer.size();i++){
+		          circle(cloud,PointBuffer[i],3,Scalar(180,0,200),-1);
+		    }
+
         cv::imshow(windowName,frame);
+				cv::imshow("cloud",cloud);
         int key = cv::waitKey(100000);
         bool c = true;
         switch(key){
@@ -1058,6 +1067,7 @@ int main(int argc, char** argv )
         if(c) continue;
         else break;
       }
+			//===============================================================================
 
       // Calibracion Iterativa
       vector<float> rms_set;
@@ -1065,19 +1075,21 @@ int main(int argc, char** argv )
 
       FOR(it,noIterations)
     	{
-    		// cout << "=================================\n";
-    		// cout << "           Iteracion " << it << endl;
-    		// cout << "=================================\n";
+    		cout << "=================================\n";
+    		cout << "           Iteracion " << it << endl;
+    		cout << "=================================\n";
     		// Limpiamosc variables
     		rvecs.clear(); tvecs.clear();
     		// cout << imgPoints.size() << endl;
     		// Comenzamos la Calibracion
+				//std::cout << "objPoints "<<objPoints<< '\n';
+				//std::cout << "imgPoints "<<imgPoints<< '\n';
     		rms = cv::calibrateCamera(objPoints,imgPoints, imgPixelSize,cameraMatrix,distCoeffs,rvecs,tvecs);
     		cout << it << " " << cameraMatrix.at<double>(0,0) << " " << cameraMatrix.at<double>(1,1) <<
     		" " << cameraMatrix.at<double>(0,2) << " " << cameraMatrix.at<double>(1,2) << " " << rms << " ";
     		// cout << "El error de reproyeccion obtenido fue de " << rms << endl;
-    		 cout << "Matriz Intrinseca:" << endl << cameraMatrix << endl;
-    		 cout << "Coeficientes de Distorsion: " << endl << distCoeffs << endl;
+    		 //cout << "Matriz Intrinseca:" << endl << cameraMatrix << endl;
+    		// cout << "Coeficientes de Distorsion: " << endl << distCoeffs << endl;
         std::cout << "rms: " << rms<<'\n';
     		rms_set.push_back(rms);
 
@@ -1093,7 +1105,8 @@ int main(int argc, char** argv )
     			cv::Mat temp = frame.clone();
     			cv::Mat OptimalMatrix = cv::getOptimalNewCameraMatrix(cameraMatrix, distCoeffs, Size(640,480), 1.0);
     			cv::undistort(temp,frame,cameraMatrix,distCoeffs,OptimalMatrix);
-          cout << "Matriz Optima:" << endl << OptimalMatrix << endl;
+					imshow("undistort",frame);
+          //cout << "Matriz Optima:" << endl << OptimalMatrix << endl;
           std::vector<cv::Point2f> PointBuffer;
     			// Buffer de puntos hallados usando el algoritmo
     			// // isTracking = false; // Para que busque en todas las imagenes
@@ -1116,27 +1129,31 @@ int main(int argc, char** argv )
     			//PrintSTDVector(PointBuffer);
     			//cv::drawChessboardCorners(frame,patternSize, PointBuffer,true);
     			float m = getAvgColinearityFromVector( PointBuffer, patternSize );
+					//std::cout << "m" << m << '\n';
     			v.push_back(m);
     			// Almacenamos solo cuatro esquinas
     			std::vector<cv::Point2f> corners1 = extractCorners(PointBuffer,patternSize);
     			//PrintSTDVector(corners1);
     			//Verificación de los puntos obtenidos
 
-    			/**
-    	        for(int i = 0; i < corners1.size(); i++){
-    	        	putText(frame,to_string(i),Point(corners1[i].x,corners1[i].y),FONT_HERSHEY_SIMPLEX,0.4,Scalar(255,0,0),1,CV_AA);
-    	        	putText(frame,to_string(i),Point(corners2[i].x,corners2[i].y),FONT_HERSHEY_SIMPLEX,0.4,Scalar(255,0,0),1,CV_AA);
-    	        }
-    	        **/
+
+    	        // for(int i = 0; i < corners1.size(); i++){
+    	        // 	putText(frame,to_string(i),Point(corners1[i].x,corners1[i].y),FONT_HERSHEY_SIMPLEX,0.4,Scalar(255,0,0),1,CV_AA);
+    	        // //	putText(frame,to_string(i),Point(corners2[i].x,corners2[i].y),FONT_HERSHEY_SIMPLEX,0.4,Scalar(255,0,0),1,CV_AA);
+    	        // }
+
 
     	        cv::Mat H = cv::findHomography(corners1,fronto_corners);
-    	        //cout << "H:\n" << H << endl;
+							//PrintSTDVector(fronto_corners);
+							imshow("HOmography",H);
+    	       // cout << "H:\n" << H << endl;
     	        //cout << "H.inv:\n" << H.inv() << endl;
 
     	        //Transformacion Fronto Parallel
     	        cv::Mat imgWarp;
     	        cv::warpPerspective(frame,imgWarp,H,Size(320,240));
 
+							imshow("Warp",imgWarp);
     	        /**
 
     	        cv::Mat imgWarp_gray;
@@ -1157,55 +1174,58 @@ int main(int argc, char** argv )
     	        //cv::hconcat(frame,imgWarp,newFrame); **/
     	    PointBuffer.clear();
     			isTracking = false; // Para que busque en todas las imagenes
+					//PrintSTDVector(PointBuffer);
+					//PrintSTDVector(imgWarp);
+					cout << "2"<<'\n';
     			bool found2 = thresh_callback( 0, 0 , PointBuffer,isTracking,oldPoints);
-
+					//PrintSTDVector(PointBuffer);
     			waitKey(100000);
-
     			if(!found2){
     				//cv::drawChessboardCorners(imgWarp,patternSize, PointBuffer,found);
     				cout << "no se pudo enconrtar el patron en la proyeccion FrontoParallel\n";
     				//return 0;
     			}
     			//Transformacion Fronto Parallel Inversa
-    			// cv::Mat imgWarp_inv;
-    	    //     cv::warpPerspective(imgWarp,imgWarp_inv,H.inv(),frame.size());
-    	    //     vector<Point2f> points_buffer2;
-    	    //     cv::perspectiveTransform( PointBuffer, points_buffer2, H.inv() );
-    	    //     //PrintSTDVector(points_buffer2);
-    	    //     /*
-    	    //     for(int i = 0; i < points_buffer2.size(); i++){
-    	    //     	putText(imgWarp_inv,to_string(i),Point(points_buffer2[i].x,points_buffer2[i].y),FONT_HERSHEY_SIMPLEX,0.4,Scalar(255,0,0),1,CV_AA);
-    	    //     }
-    	    //     */
-          //
-          //
-    	    //     //cout << "Intrinsics: " << endl <<  cameraMatrix <<  endl;
-    	    //     //cout <<  cameraMatrix.at<double>(0,0) << endl;
-    	    //     //cout << "coeff dist: " << distCoeffs  << endl;
-          //
-    	    //     //vector<Point2f> corrected_points  = distortion(points_buffer2,cameraMatrix,distCoeffs);
-    	    //     //std::vector<cv::Point3f> corrected_points_tmp;
-    	    //     std::vector<cv::Point2f> corrected_points;
-    	    //     //cv::Mat rtemp = cv::Mat::zeros(3,1,CV_64F);
-    	    //     //cv::Mat ttemp = cv::Mat::zeros(3,1,CV_64F);
-          //
-    	    //     //cv::undistortPoints(imgPoints[i], PointBuffer, cameraMatrix, distCoeffs, cv::noArray(),OptimalMatrix);
-          //
-    	    //     // Distorsión Inversa
-    	    //     cv::undistortPoints(points_buffer2,corrected_points,OptimalMatrix,-distCoeffs,cv::noArray(),cameraMatrix);
-    	    //     //cv::convertPointsToHomogeneous(points_buffer2,corrected_points_tmp);
-    	    //     //cv::projectPoints(corrected_points_tmp, rtemp, ttemp, cameraMatrix, distCoeffs, corrected_points);
-          //
-    	    //     //PrintSTDVector(corrected_points);
-          //
-    	    //    	cv::drawChessboardCorners(imgWarp_inv, patternSize, corrected_points, true);
-    	    //    	cv::drawChessboardCorners(imgWarp_inv, patternSize, imgPoints[i], true);
-    	    //    	//vector<Point2f> corrected_points;
-    	    //    	//cv::projectPoints( corrected_points,  )
-    	    //    	//PrintSTDVector(corrected_points);
-    	    //    	//PrintSTDVector(imgPoints[i]);
-          //
-    	    //    	imgPoints2.push_back( corrected_points );
+    					cv::Mat imgWarp_inv;
+    	        cv::warpPerspective(imgWarp,imgWarp_inv,H.inv(),frame.size());
+							imshow("Warp_inv",imgWarp_inv);
+    	        vector<Point2f> points_buffer2;
+    	        cv::perspectiveTransform( PointBuffer, points_buffer2, H.inv() );
+    	        //PrintSTDVector(PointBuffer);
+    	        /*
+    	        for(int i = 0; i < points_buffer2.size(); i++){
+    	        	putText(imgWarp_inv,to_string(i),Point(points_buffer2[i].x,points_buffer2[i].y),FONT_HERSHEY_SIMPLEX,0.4,Scalar(255,0,0),1,CV_AA);
+    	        }
+    	        */
+
+
+    	        //cout << "Intrinsics: " << endl <<  cameraMatrix <<  endl;
+    	        //cout <<  cameraMatrix.at<double>(0,0) << endl;
+    	        //cout << "coeff dist: " << distCoeffs  << endl;
+
+    	        //vector<Point2f> corrected_points  = distortion(points_buffer2,cameraMatrix,distCoeffs);
+    	        //std::vector<cv::Point3f> corrected_points_tmp;
+    	        std::vector<cv::Point2f> corrected_points;
+    	        //cv::Mat rtemp = cv::Mat::zeros(3,1,CV_64F);
+    	        //cv::Mat ttemp = cv::Mat::zeros(3,1,CV_64F);
+
+    	        //cv::undistortPoints(imgPoints[i], PointBuffer, cameraMatrix, distCoeffs, cv::noArray(),OptimalMatrix);
+
+    	        // Distorsión Inversa
+    	        cv::undistortPoints(points_buffer2,corrected_points,OptimalMatrix,-distCoeffs,cv::noArray(),cameraMatrix);
+    	        //cv::convertPointsToHomogeneous(points_buffer2,corrected_points_tmp);
+    	        //cv::projectPoints(corrected_points_tmp, rtemp, ttemp, cameraMatrix, distCoeffs, corrected_points);
+
+    	        //PrintSTDVector(corrected_points);
+
+    	       	cv::drawChessboardCorners(imgWarp_inv, patternSize, corrected_points, true);
+    	       	cv::drawChessboardCorners(imgWarp_inv, patternSize, imgPoints[i], true);
+    	       	//vector<Point2f> corrected_points;
+    	       	//cv::projectPoints( corrected_points,  )
+    	       	//PrintSTDVector(corrected_points);
+    	       	//PrintSTDVector(imgPoints[i]);
+
+    	       	imgPoints2.push_back( corrected_points );
           //cv::drawChessboardCorners(imgWarp, patternSize, imgPoints[i], true);
           cv::imshow("Warp", imgWarp);
     	    //cv::imshow("h",imgWarp);
@@ -1237,7 +1257,6 @@ int main(int argc, char** argv )
     			}
 
     		cout << printAvgColinearity(v) << endl;
-
     		//rms = cv::calibrateCamera(objPoints,imgPoints2, imgPixelSize,cameraMatrix,distCoeffs,rvecs,tvecs);
     		//cout << "El error de reproyeccion obtenido fue de " << rms << endl;
     	}
